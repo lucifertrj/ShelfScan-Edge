@@ -1,9 +1,9 @@
 from pathlib import Path
 from fastembed import ImageEmbedding
-from qdrant_edge import EdgeShard, SearchRequest, Query
+from qdrant_edge import EdgeShard, QueryRequest, Query
 
 SHARD_DIR = "./shard"
-VECTOR_NAME = "image"
+IMAGE_VECTOR_NAME = "image"
 IMAGES_DIR = Path("data/images")
 
 def main():
@@ -22,11 +22,12 @@ def main():
     print(f"Querying using image: {example_img}")
     vecs = list(embedder.embed([example_img]))
     
-    results = shard.search(
-        SearchRequest(
-            query=Query.Nearest(vecs[0].tolist(), using=VECTOR_NAME),
+    results = shard.query(
+        QueryRequest(
+            query=Query.Nearest(vecs[0].tolist(), using=IMAGE_VECTOR_NAME),
             limit=3,
-            with_payload=True
+            with_payload=True,
+            with_vector=False
         )
     )
     

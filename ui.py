@@ -5,11 +5,12 @@ from pathlib import Path
 import streamlit as st
 from fastembed import ImageEmbedding, TextEmbedding
 from PIL import Image
-from qdrant_edge import EdgeShard, Query, SearchRequest
+from qdrant_edge import EdgeShard, Query, QueryRequest
 
 
 SHARD_DIR = "./shard"
-VECTOR_NAME = "image"
+IMAGE_VECTOR_NAME = "image"
+TEXT_VECTOR_NAME = "text"
 IMAGES_DIR = Path("data/images")
 CATALOG_PATH = Path("data/products.json")
 
@@ -100,23 +101,28 @@ def product_image(product):
     return path if path.exists() else None
 
 
-def search(vector):
-    return shard.search(
-        SearchRequest(
-            query=Query.Nearest(vector, using=VECTOR_NAME),
-            limit=3,
-            with_payload=True,
-        )
-    )
-
 def search_text(query):
     vector = list(text_embedder.embed([query]))[0].tolist()
-    return search(vector)
+    return shard.query(
+        QueryRequest(
+            query=Query.Nearest(vector, using=TEXT_VECTOR_NAME),
+            limit=3,
+            with_payload=True,
+            with_vector=False
+        )
+    )
 
 
 def search_image(image):
     vector = list(image_embedder.embed([image]))[0].tolist()
-    return search(vector)
+    return shard.query(
+        QueryRequest(
+            query=Query.Nearest(vector, using=IMAGE_VECTOR_NAME),
+            limit=3,
+            with_payload=True,
+            with_vector=False
+        )
+    )
 
 
 def render_product(product, score=None):

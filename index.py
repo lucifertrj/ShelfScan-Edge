@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
-from fastembed import ImageEmbedding
+from fastembed import ImageEmbedding, TextEmbedding
 from qdrant_edge import (
     Distance, EdgeConfig, EdgeVectorParams, EdgeShard,
-    Point, UpdateOperation, PayloadSchemaType,
-    MultiVectorConfig, MultiVectorComparator
+    Point, UpdateOperation, PayloadSchemaType
 )
 
 SHARD_DIR   = "./shard"
-VECTOR_NAME = "image"
-VECTOR_DIM  = 512       
+IMAGE_VECTOR_NAME = "image"
+TEXT_VECTOR_NAME = "text"
+VECTOR_DIM  = 512
 BATCH_SIZE  = 8
 IMAGES_DIR  = Path("data/images")
 CATALOG     = Path("data/products.json")
@@ -17,10 +17,13 @@ CATALOG     = Path("data/products.json")
 def get_shard() -> EdgeShard:
     config = EdgeConfig(
         vectors={
-            VECTOR_NAME: EdgeVectorParams(
-                size=VECTOR_DIM, 
-                distance=Distance.Cosine,
-                multivector_config=MultiVectorConfig(comparator=MultiVectorComparator.MaxSim)
+            IMAGE_VECTOR_NAME: EdgeVectorParams(
+                size=VECTOR_DIM,
+                distance=Distance.Cosine
+            ),
+            TEXT_VECTOR_NAME: EdgeVectorParams(
+                size=VECTOR_DIM,
+                distance=Distance.Cosine
             )
         }
     )
@@ -42,7 +45,8 @@ def get_shard() -> EdgeShard:
 
 def main():
     products = json.loads(CATALOG.read_text())
-    embedder = ImageEmbedding(model_name="Qdrant/clip-ViT-B-32-vision")
+    image_embedder = ImageEmbedding(model_name="Qdrant/clip-ViT-B-32-vision")
+    text_embedder = TextEmbedding(model_name="Qdrant/clip-ViT-B-32-text")
     shard    = get_shard()
 
     for i in range(0, len(products), BATCH_SIZE):
@@ -50,22 +54,25 @@ def main():
         
         points = []
         for p in batch:
-            # Gather all images in the product's image_dir
             product_img_dir = IMAGES_DIR / p["image_dir"]
             image_paths = list(product_img_dir.glob("*.jpg"))
             if not image_paths:
                 continue
-                
-            # Embed all images for this product
-            vecs = list(embedder.embed(image_paths))
-            
-            # Combine into a multivector (list of lists)
-            multivector = [vec.tolist() for vec in vecs]
-            
+
+            image_vecs = list(image_embedder.embed([image_paths[0]]))
+            image_vector = image_vecs[0].tolist()
+
+            text_description = f"{p['name']} {p['brand']} {p['category']} {' '.join(p['tags'])}"
+            text_vecs = list(text_embedder.embed([text_description]))
+            text_vector = text_vecs[0].tolist()
+
             points.append(
                 Point(
                     id=p["id"],
-                    vector={VECTOR_NAME: multivector},
+                    vector={
+                        IMAGE_VECTOR_NAME: image_vector,
+                        TEXT_VECTOR_NAME: text_vector
+                    },
                     payload={
                         "name":     p["name"],
                         "brand":    p["brand"],
