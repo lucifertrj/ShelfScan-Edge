@@ -1,6 +1,6 @@
 from pathlib import Path
 from fastembed import TextEmbedding
-from qdrant_edge import EdgeShard, QueryRequest, Query, Filter, FieldCondition, MatchValue
+from qdrant_edge import EdgeShard, QueryRequest, Query
 
 SHARD_DIR = "./shard"
 TEXT_VECTOR_NAME = "text"
